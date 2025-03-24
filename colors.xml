@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- custom palette -->
+    <color name="green_basic">#FF14D100</color>
+    <color name="green_basic_light_min">#FF74E868</color>
+    <color name="green_basic_light_max">#FF4AE83A</color>
+    <color name="green_basic_dark_min">#FF329D27</color>
+    <color name="green_basic_dark_max">#FF0D8800</color>
+    <color name="blue_basic">#FF009D91</color>
+    <color name="blue_basic_light_min">#FF5DCEC6</color>
+    <color name="blue_basic_light_max">#FF33CEC3</color>
+    <color name="blue_basic_dark_min">#FF1D766F</color>
+    <color name="blue_basic_dark_max">#FF00665E</color>
+    <color name="yellow_basic">#FFA5EF00</color>
+    <color name="yellow_basic_light_min">#FFCDF76F</color>
+    <color name="yellow_basic_light_max">#FFBEF73E</color>
+    <color name="yellow_basic_dark_min">#FF8AB32D</color>
+    <color name="yellow_basic_dark_max">#FF6B9B00</color>
+</resources>

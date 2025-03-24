@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Snaval Strike</string>
+    <string name="about_game">About Game</string>
+    <string name="exit_account">Exit Account</string>
+    <string name="username">Username</string>
+    <string name="login">Login</string>
+    <string name="reconnect">Reconnect</string>
+    <string name="quit">Quit</string>
+</resources>
