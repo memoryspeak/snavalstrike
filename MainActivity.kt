@@ -42,10 +42,8 @@ class MainActivity : AppCompatActivity() {
         if (Singleton.scene != "main") return super.onOptionsItemSelected(item)
         return when (item.itemId) {
             R.id.action_exit_account -> {
-                Singleton.editor.putString("username", "")
-                Singleton.editor.apply()
-
-                Singleton.username = ""
+                sendMessageToServer("DELETE_USER ${Singleton.username} END")
+                sharedPreferencesClear()
                 setContentView(R.layout.activity_login)
                 Singleton.scene = "login"
                 reDraw(Singleton.scene)
@@ -78,7 +76,7 @@ class MainActivity : AppCompatActivity() {
                 loginButton.setOnClickListener {
                     val username = editUsername.text.toString()
                     if (username == "") return@setOnClickListener
-                    sendMessageToServer("LOGIN $username")
+                    sendMessageToServer("ADD_USER $username END")
                 }
             }
             "reconnect" -> {
@@ -128,7 +126,6 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 notifyError("Connection error: ${e.message}")
             } finally {
-                //closeResources()
                 uiHandler.post {
                     Singleton.scene = "reconnect"
                     reDraw(Singleton.scene)
@@ -151,18 +148,15 @@ class MainActivity : AppCompatActivity() {
                 try {
                     while (running) {
                         readMessage()?.let { message ->
-                            val method = message.split(" ")[0]
-                            when (method) {
+                            if (Singleton.DEBUG) notifyMessage(message)
+                            when (message.split(" ")[0]) {
                                 "HEARTBEAT" -> {
-                                    val status = message.split(" ")[1]
-                                    if (status == "self") {
-                                        sendHeartbeat()
-                                    } else notifyMessage(message)
+                                    todo()
                                 }
-                                "LOGIN" -> {
+                                "ADD_USER" -> {
                                     val status = message.split(" ")[1]
+                                    val username = message.split(" ")[2]
                                     if (status == "ok") {
-                                        val username = message.split(" ")[2]
                                         uiHandler.post {
                                             Singleton.editor.putString("username", username)
                                             Singleton.editor.apply()
@@ -173,16 +167,80 @@ class MainActivity : AppCompatActivity() {
                                             Singleton.scene = "main"
                                             reDraw(Singleton.scene)
                                         }
+                                    } else if (status == "alreadyinuse") {
+                                        uiHandler.post {
+                                            sharedPreferencesClear()
+                                            Singleton.scene = "login"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        notifyMessage("Username `${username}` already in use")
+                                    } else if (status == "error") {
+                                        uiHandler.post {
+                                            sharedPreferencesClear()
+                                            Singleton.scene = "login"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        notifyMessage("Error add user `${username}`")
                                     } else {
                                         uiHandler.post {
                                             sharedPreferencesClear()
                                             Singleton.scene = "login"
                                             reDraw(Singleton.scene)
                                         }
-                                        notifyMessage("Username already in use")
+                                        notifyMessage("Username `${username}` add user undefined status")
                                     }
                                 }
-                                else -> notifyMessage("Unknown method")
+                                "DELETE_USER" -> {
+                                    val status = message.split(" ")[1]
+                                    val username = message.split(" ")[2]
+                                    when (status) {
+                                        "ok" -> notifyMessage("Delete user `${username}` successfully")
+                                        "dontfind" -> notifyMessage("Username `${username}` don't find to delete")
+                                        "error" -> notifyMessage("Error delete user `${username}`")
+                                        else -> notifyMessage("Username `${username}` delete user undefined status")
+                                    }
+                                }
+                                "LOGIN" -> {
+                                    val status = message.split(" ")[1]
+                                    val username = message.split(" ")[2]
+                                    val elo = message.split(" ")[3].toInt()
+                                    if (status == "ok") {
+                                        uiHandler.post {
+                                            Singleton.editor.putString("username", username)
+                                            Singleton.editor.apply()
+                                            Singleton.editor.putInt("elo", elo)
+                                            Singleton.editor.apply()
+                                            Singleton.username = username
+                                            Singleton.elo = elo
+                                            Singleton.scene = "main"
+                                            reDraw(Singleton.scene)
+                                        }
+                                    } else if (status == "doesnotexist") {
+                                        uiHandler.post {
+                                            sharedPreferencesClear()
+                                            Singleton.scene = "login"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        notifyMessage("Username `${username}` does not exist")
+                                    } else if (status == "error") {
+                                        uiHandler.post {
+                                            sharedPreferencesClear()
+                                            Singleton.scene = "login"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        notifyMessage("Error login `${username}`")
+                                    } else {
+                                        uiHandler.post {
+                                            sharedPreferencesClear()
+                                            Singleton.scene = "login"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        notifyMessage("Username `${username}` login undefined status")
+                                    }
+                                }
+                                else -> {
+                                    if (Singleton.DEBUG) notifyMessage("Unknown method") else TODO()
+                                }
                             }
                         } ?: break
                     }
@@ -200,7 +258,8 @@ class MainActivity : AppCompatActivity() {
         private fun readMessage(): String? = try {
             reader?.readLine()
         } catch (e: SocketTimeoutException) {
-            "HEARTBEAT self"
+            sendHeartbeat()
+            "HEARTBEAT"
         } catch (e: IOException) {
             null
         }
@@ -259,7 +318,7 @@ class MainActivity : AppCompatActivity() {
                 if (!isFinishing && !isDestroyed) {
                     Toast.makeText(
                         this@MainActivity,
-                        "Received: $message",
+                        message,
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -271,11 +330,15 @@ class MainActivity : AppCompatActivity() {
                 if (!isFinishing && !isDestroyed) {
                     Toast.makeText(
                         this@MainActivity,
-                        "Error: ${error ?: "Unknown"}",
+                        error ?: "error",
                         Toast.LENGTH_LONG
                     ).show()
                 }
             }
+        }
+
+        private fun todo() {
+            uiHandler.post {}
         }
     }
 
@@ -313,7 +376,7 @@ class MainActivity : AppCompatActivity() {
                     Singleton.editor.apply()
                     Singleton.elo = 1500
                 }
-                sendMessageToServer("LOGIN ${Singleton.username}")
+                sendMessageToServer("LOGIN ${Singleton.username} END")
             }
         } else {
             sharedPreferencesClear()
