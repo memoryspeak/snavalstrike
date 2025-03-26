@@ -26,12 +26,13 @@ class ClientHandler(threading.Thread):
                 elif method == "ADD_USER":
                     username = message.split(" ")[1]
                     add_user_status = Database.addUser(username)
-                    if add_user_status == 1:
-                        self.client_socket.send(f"ADD_USER ok {username} END\n".encode('utf-8'))
-                    elif add_user_status == 0:
+                    if add_user_status == 0:
                         self.client_socket.send(f"ADD_USER alreadyinuse {username} END\n".encode('utf-8'))
-                    else:
+                    elif add_user_status == -1:
                         self.client_socket.send(f"ADD_USER error {username} END\n".encode('utf-8'))
+                    else:
+                        self.client_socket.send(f"ADD_USER ok {username} END\n".encode('utf-8'))
+                        #self.client_socket["database_id"] = add_user_status
                 elif method == "DELETE_USER":
                     username = message.split(" ")[1]
                     delete_user_status = Database.deleteUser(username)
@@ -50,6 +51,13 @@ class ClientHandler(threading.Thread):
                         self.client_socket.send(f"LOGIN doesnotexist {username} {elo} END\n".encode('utf-8'))
                     else:
                         self.client_socket.send(f"LOGIN error {username} {elo} END\n".encode('utf-8'))
+                elif method == "GET_PLAYERS":
+                    get_players = Database.getPlayers()
+                    for player in get_players:
+                        id = player[0]
+                        username = player[1]
+                        elo = player[2]
+                        self.client_socket.send(f"ADD_PLAYER {id} {username} {elo} END\n".encode('utf-8'))
                 #self.broadcast(message)
                 #self.client_socket.send(message.encode('utf-8'))
         except ConnectionResetError:
@@ -93,7 +101,7 @@ class Database:
                     INSERT INTO users (username) VALUES (?);
                     ''', (username,))
                     print(f"[{datetime.now()}] [n] ADD username = `{username}`")
-                    return 1
+                    return cursor.lastrowid
                 except sqlite3.IntegrityError:
                     print(f"[{datetime.now()}] [!] ADD username: `{username}` already in use")
                     return 0
@@ -143,6 +151,19 @@ class Database:
             print(f"[{datetime.now()}] [!] DELETE username: `{username}` error: {e}")
             return -1
 
+    @staticmethod
+    def getPlayers():
+        try:
+            with sqlite3.connect(DATABASE_NAME) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                SELECT * FROM users;
+                ''')
+                return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"[{datetime.now()}] [!] GET PLAYERS error: {e}")
+            return []
+
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -176,7 +197,6 @@ def main():
 
 clients = []
 PORT = 32951
-PUBLIC_GET_IP_URL = "https://api.ipify.org"
 DATABASE_NAME = "snaval_strike_server_database.db"
 
 if __name__ == "__main__":
