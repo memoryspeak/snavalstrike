@@ -19,10 +19,13 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.InetSocketAddress
 import java.util.concurrent.LinkedBlockingQueue
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var socketThread: SocketThread? = null
+    private val playerRecyclerViewAdapter: PlayersRecyclerViewAdapter = PlayersRecyclerViewAdapter(mutableListOf())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Singleton.sharedPreferences = getSharedPreferences("snavalStrikeSettings", Context.MODE_PRIVATE)
@@ -50,8 +53,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_about_game -> {
-                // Действие для "О приложении"
-                sendMessageToServer("about")
+                // TODO
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -68,6 +70,12 @@ class MainActivity : AppCompatActivity() {
                 toolbar.subtitle = subtitle
                 supportActionBar?.subtitle = subtitle
                 toolbar.invalidate()
+
+                val recyclerView: RecyclerView = findViewById(R.id.playersRecyclerView)
+                recyclerView.layoutManager = LinearLayoutManager(this)
+                recyclerView.adapter = playerRecyclerViewAdapter
+
+                sendMessageToServer("GET_PLAYERS END")
             }
             "login" -> {
                 setContentView(R.layout.activity_login)
@@ -194,7 +202,9 @@ class MainActivity : AppCompatActivity() {
                                     val status = message.split(" ")[1]
                                     val username = message.split(" ")[2]
                                     when (status) {
-                                        "ok" -> notifyMessage("Delete user `${username}` successfully")
+                                        "ok" -> {
+                                            if (Singleton.DEBUG) notifyMessage("Delete user `${username}` successfully") else todo()
+                                        }
                                         "dontfind" -> notifyMessage("Username `${username}` don't find to delete")
                                         "error" -> notifyMessage("Error delete user `${username}`")
                                         else -> notifyMessage("Username `${username}` delete user undefined status")
@@ -238,8 +248,16 @@ class MainActivity : AppCompatActivity() {
                                         notifyMessage("Username `${username}` login undefined status")
                                     }
                                 }
+                                "ADD_PLAYER" -> {
+                                    val id = message.split(" ")[1]
+                                    val username = message.split(" ")[2]
+                                    val elo = message.split(" ")[3].toInt()
+                                    runOnUiThread {
+                                        playerRecyclerViewAdapter.addPlayer(Player(id, R.drawable.logo108, username, elo))
+                                    }
+                                }
                                 else -> {
-                                    if (Singleton.DEBUG) notifyMessage("Unknown method") else TODO()
+                                    if (Singleton.DEBUG) notifyMessage("Unknown method") else todo()
                                 }
                             }
                         } ?: break
