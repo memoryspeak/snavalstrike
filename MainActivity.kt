@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
                 val recyclerView: RecyclerView = findViewById(R.id.playersRecyclerView)
                 recyclerView.layoutManager = LinearLayoutManager(this)
                 recyclerView.adapter = playerRecyclerViewAdapter
-
+                playerRecyclerViewAdapter.updatePlayers(listOf())
                 sendMessageToServer("GET_PLAYERS END")
             }
             "login" -> {
@@ -252,8 +252,27 @@ class MainActivity : AppCompatActivity() {
                                     val id = message.split(" ")[1]
                                     val username = message.split(" ")[2]
                                     val elo = message.split(" ")[3].toInt()
+                                    val isOnline = message.split(" ")[4].toInt()
                                     runOnUiThread {
-                                        playerRecyclerViewAdapter.addPlayer(Player(id, R.drawable.logo108, username, elo))
+                                        if (isOnline == 0) {
+                                            playerRecyclerViewAdapter.addPlayer(Player(id, false, username, elo))
+                                        } else {
+                                            playerRecyclerViewAdapter.addPlayer(Player(id, true, username, elo))
+                                        }
+                                    }
+                                }
+                                "DELETE_PLAYER" -> {
+                                    val username = message.split(" ")[1]
+                                    runOnUiThread {
+                                        playerRecyclerViewAdapter.removePlayer(username)
+                                    }
+                                }
+                                "UPDATE_PLAYER" -> {
+                                    val username = message.split(" ")[1]
+                                    val elo = message.split(" ")[2].toInt()
+                                    val isOnline = message.split(" ")[3].toInt() == 1
+                                    runOnUiThread {
+                                        playerRecyclerViewAdapter.updatePlayer(username, elo, isOnline)
                                     }
                                 }
                                 else -> {
