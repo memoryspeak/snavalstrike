@@ -26,17 +26,21 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
 
     fun removePlayer(username: String) {
         val position = players.indexOfFirst { it.username == username }
-        players.removeAt(position)
-        notifyItemRemoved(position)
-        updatePlayers(sortedPlayersList())
+        if (position != -1) {
+            players.removeAt(position)
+            notifyItemRemoved(position)
+            updatePlayers(sortedPlayersList())
+        }
     }
 
     fun updatePlayer(username: String, elo: Int, isOnline: Boolean) {
         val position = players.indexOfFirst { it.username == username }
-        val id = players[position].id
-        players[position] = Player(id, isOnline, username, elo)
-        notifyItemChanged(position)
-        updatePlayers(sortedPlayersList())
+        if (position != -1) {
+            val id = players[position].id
+            players[position] = Player(id, isOnline, username, elo)
+            notifyItemChanged(position)
+            updatePlayers(sortedPlayersList())
+        }
     }
 
     private fun sortedPlayersList(): List<Player> {
