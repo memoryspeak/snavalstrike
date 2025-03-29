@@ -121,8 +121,6 @@ class PlayersRecyclerViewAdapter(
 
         holder.playerItem.setOnClickListener { view ->
             if (isOnline && !isBusy) {
-                //val dialog = DialogNewGame(username, elo, isPositiveButton = false, sendMessageToServer)
-                //dialog.show(fragmentManager, "NEW_GAME")
                 sendMessageToServer("REQUEST_GAME $username END")
             }
         }

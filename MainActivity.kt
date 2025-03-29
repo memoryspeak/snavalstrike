@@ -276,16 +276,25 @@ class MainActivity : AppCompatActivity() {
                                     }
                                 }
                                 "REQUEST_GAME" -> {
-                                    val username = message.split(" ")[1]
-                                    val elo = message.split(" ")[2].toInt()
-                                    val dialog = DialogNewGame(username, elo, isPositiveButton = true, ::sendMessageToServer)
-                                    dialog.show(supportFragmentManager, "NEW_GAME")
+                                    val usernameA = message.split(" ")[1]
+                                    val eloA = message.split(" ")[2].toInt()
+                                    val usernameB = message.split(" ")[3]
+                                    val eloB = message.split(" ")[4].toInt()
+                                    if (Singleton.username == usernameA) {
+                                        val dialog = DialogNewGame(usernameB, eloB, isPositiveButton = false, ::sendMessageToServer)
+                                        dialog.show(supportFragmentManager, "NEW_GAME")
+                                    } else if (Singleton.username == usernameB) {
+                                        val dialog = DialogNewGame(usernameA, eloA, isPositiveButton = true, ::sendMessageToServer)
+                                        dialog.show(supportFragmentManager, "NEW_GAME")
+                                    } else {
+                                        notifyMessage("REQUEST_GAME. I'm not usernameA and usernameB. It's impossible!!!")
+                                    }
                                 }
                                 "RESPONSE_GAME" -> {
                                     val username = message.split(" ")[1]
                                     val status = message.split(" ")[2]
                                     val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
-                                    dialogFragment?.dismiss()
+                                    dialogFragment?.dismiss() ?: todo()
                                 }
                                 else -> {
                                     if (Singleton.DEBUG) notifyMessage("Unknown method") else todo()
