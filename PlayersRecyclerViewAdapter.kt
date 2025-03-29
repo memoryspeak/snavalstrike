@@ -6,10 +6,15 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.fragment.app.FragmentManager
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
-class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : RecyclerView.Adapter<PlayersRecyclerViewAdapter.PlayersViewHolder>() {
+class PlayersRecyclerViewAdapter(
+    private val players: MutableList<Player>,
+    private val fragmentManager: FragmentManager,
+    private val sendMessageToServer: (String) -> Unit
+) : RecyclerView.Adapter<PlayersRecyclerViewAdapter.PlayersViewHolder>() {
 
     fun updatePlayers(newPlayers: List<Player>) {
         val diffResult = DiffUtil.calculateDiff(PlayerDiffCallback(players, newPlayers))
@@ -33,11 +38,11 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
         }
     }
 
-    fun updatePlayer(username: String, elo: Int, isOnline: Boolean) {
+    fun updatePlayer(username: String, elo: Int, isOnline: Boolean, isBusy: Boolean) {
         val position = players.indexOfFirst { it.username == username }
         if (position != -1) {
             val id = players[position].id
-            players[position] = Player(id, isOnline, username, elo)
+            players[position] = Player(id, username, elo, isOnline, isBusy)
             notifyItemChanged(position)
             updatePlayers(sortedPlayersList())
         }
@@ -45,7 +50,7 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
 
     private fun sortedPlayersList(): List<Player> {
         // Определяем порядок сортировки символов
-        val order = "-_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val order = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
         val charOrder = order.associate { it to order.indexOf(it) }
 
         // Компаратор для сравнения username
@@ -64,13 +69,18 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
         // Создаём глубокую копию
         val sortedList = players.map { it.copy() }.toMutableList()
 
-        // Сортируем по статусу и имени
+        // Сортируем по статусу, занятости и имени
         sortedList.sortWith(Comparator { p1, p2 ->
             when {
                 // Сначала онлайн игроки
                 p1.isOnline != p2.isOnline -> if (p1.isOnline) -1 else 1
-                // Затем сортировка по имени
-                else -> usernameComparator.compare(p1.username, p2.username)
+                // Затем сортировка по занятости и имени
+                else -> {
+                    when {
+                        p1.isBusy != p2.isBusy -> if (p2.isBusy) -1 else 1
+                        else -> usernameComparator.compare(p1.username, p2.username)
+                    }
+                }
             }
         })
 
@@ -92,14 +102,17 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
 
     override fun onBindViewHolder(holder: PlayersViewHolder, position: Int) {
         val user = players[position]
-        //val id = user.id
-        //val icon = user.icon
-        val isOnline = user.isOnline
         val username = user.username
         val elo = user.elo
+        val isOnline = user.isOnline
+        val isBusy = user.isBusy
 
         if (isOnline) {
-            holder.playerIcon.setImageResource(R.drawable.player_online)
+            if (isBusy) {
+                holder.playerIcon.setImageResource(R.drawable.player_busy)
+            } else {
+                holder.playerIcon.setImageResource(R.drawable.player_online)
+            }
         } else {
             holder.playerIcon.setImageResource(R.drawable.player_offline)
         }
@@ -107,10 +120,11 @@ class PlayersRecyclerViewAdapter(private val players: MutableList<Player>) : Rec
         holder.playerElo.text = elo.toString()
 
         holder.playerItem.setOnClickListener { view ->
-            //val intent = Intent(view.context, ContentActivity::class.java)
-            //intent.putExtra("icon", icon);
-            //intent.putExtra("name", name);
-            //view.context.startActivity(intent)
+            if (isOnline && !isBusy) {
+                //val dialog = DialogNewGame(username, elo, isPositiveButton = false, sendMessageToServer)
+                //dialog.show(fragmentManager, "NEW_GAME")
+                sendMessageToServer("REQUEST_GAME $username END")
+            }
         }
     }
 

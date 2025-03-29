@@ -25,7 +25,7 @@ import androidx.recyclerview.widget.RecyclerView
 class MainActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var socketThread: SocketThread? = null
-    private val playerRecyclerViewAdapter: PlayersRecyclerViewAdapter = PlayersRecyclerViewAdapter(mutableListOf())
+    private val playerRecyclerViewAdapter: PlayersRecyclerViewAdapter = PlayersRecyclerViewAdapter(mutableListOf(), supportFragmentManager, ::sendMessageToServer)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Singleton.sharedPreferences = getSharedPreferences("snavalStrikeSettings", Context.MODE_PRIVATE)
@@ -61,6 +61,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reDraw(scene: String) {
+        val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
+        dialogFragment?.dismiss()
         when (scene) {
             "main" -> {
                 setContentView(R.layout.activity_main)
@@ -252,13 +254,10 @@ class MainActivity : AppCompatActivity() {
                                     val id = message.split(" ")[1]
                                     val username = message.split(" ")[2]
                                     val elo = message.split(" ")[3].toInt()
-                                    val isOnline = message.split(" ")[4].toInt()
+                                    val isOnline = message.split(" ")[4].toInt() == 1
+                                    val isBusy = message.split(" ")[5].toInt() == 1
                                     runOnUiThread {
-                                        if (isOnline == 0) {
-                                            playerRecyclerViewAdapter.addPlayer(Player(id, false, username, elo))
-                                        } else {
-                                            playerRecyclerViewAdapter.addPlayer(Player(id, true, username, elo))
-                                        }
+                                        playerRecyclerViewAdapter.addPlayer(Player(id, username, elo, isOnline, isBusy))
                                     }
                                 }
                                 "DELETE_PLAYER" -> {
@@ -271,9 +270,22 @@ class MainActivity : AppCompatActivity() {
                                     val username = message.split(" ")[1]
                                     val elo = message.split(" ")[2].toInt()
                                     val isOnline = message.split(" ")[3].toInt() == 1
+                                    val isBusy = message.split(" ")[4].toInt() == 1
                                     runOnUiThread {
-                                        playerRecyclerViewAdapter.updatePlayer(username, elo, isOnline)
+                                        playerRecyclerViewAdapter.updatePlayer(username, elo, isOnline, isBusy)
                                     }
+                                }
+                                "REQUEST_GAME" -> {
+                                    val username = message.split(" ")[1]
+                                    val elo = message.split(" ")[2].toInt()
+                                    val dialog = DialogNewGame(username, elo, isPositiveButton = true, ::sendMessageToServer)
+                                    dialog.show(supportFragmentManager, "NEW_GAME")
+                                }
+                                "RESPONSE_GAME" -> {
+                                    val username = message.split(" ")[1]
+                                    val status = message.split(" ")[2]
+                                    val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
+                                    dialogFragment?.dismiss()
                                 }
                                 else -> {
                                     if (Singleton.DEBUG) notifyMessage("Unknown method") else todo()
