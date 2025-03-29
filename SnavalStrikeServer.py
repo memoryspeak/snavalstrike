@@ -218,7 +218,10 @@ class ClientHandler(threading.Thread): # наследуемся от threading.T
                 ####################
                 #   REQUEST_GAME   #
                 ####################
-                elif method == "REQUEST_GAME": # запрос на игру
+                # запрос на игру
+                # тип сообщения REQUEST_GAME {username} END\n
+                # username - это с кем хочет играть инициатор, то есть это целевой
+                elif method == "REQUEST_GAME":
                     # парсим имя целевого пользователя
                     request_username = message.split(" ")[1]
                     
@@ -278,14 +281,109 @@ class ClientHandler(threading.Thread): # наследуемся от threading.T
                     # отправляем сообщения для инициатора и целевого
                     # эти сообщения позволят отобразить AlertDialog в интерфейсе клиентов
                     if usernamesInGames == False:
-                        games.append(Game(usernameA, usernameB))
-                        self.sendMessage(socketA, f"REQUEST_GAME {usernameA} {eloA} {usernameB} {eloB} END\n")
-                        self.sendMessage(socketB, f"REQUEST_GAME {usernameA} {eloA} {usernameB} {eloB} END\n")
+                        if all(x is not None for x in [socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA]) and all(x is not None for x in [socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB]):
+                            games.append(Game(usernameA, usernameB))
+                            self.sendMessage(socketA, f"REQUEST_GAME {usernameA} {eloA} {usernameB} {eloB} END\n")
+                            self.sendMessage(socketB, f"REQUEST_GAME {usernameA} {eloA} {usernameB} {eloB} END\n")
                 ####################
                 #   RESPONSE_GAME  #
                 ####################
+                # ответ на запрос
+                # тип сообщения RESPONSE_GAME {username} {status} END\n
+                # username - это кому предназначен ответ, напарник
+                # status может быть ok или bad
                 elif method == "RESPONSE_GAME":
+                    # парсим имя напарника, статус
                     response_username = message.split(" ")[1]
+                    status = message.split(" ")[2]
+                    
+                    # параметры ответчика и напарника
+                    # ответчик
+                    socketA = None
+                    addrA = None
+                    database_idA = None
+                    usernameA = None
+                    eloA = None
+                    isOnlineA = None
+                    isBusyA = None
+                    # напарник
+                    socketB = None
+                    addrB = None
+                    database_idB = None
+                    usernameB = None
+                    eloB = None
+                    isOnlineB = None
+                    isBusyB = None
+                    
+                    # устанавливаем статусы в оба клиента на основании присланного status
+                    # заполняем параметры клиентов, когда их находим
+                    for client in clients:
+                        if client.addr == self.addr:
+                            with clients_lock:
+                                if status == "ok":
+                                  pass
+                                else:
+                                    client.isBusy = False
+                            socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA = getClientBy("addr", self.addr)
+                        if client.username == response_username:
+                            with clients_lock:
+                                client.isBusy = False
+                            socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB = getClientBy("username", response_username)
+                    
+                    # отправляем всем клиентам (кроме ответчика и напарника)
+                    # обновленные статусы ответчика и напарника
+                    with clients_lock:
+                        clients_copy = clients.copy()
+                    for client in clients_copy:
+                        if all(x is not None for x in [socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA]):
+                            if addrA != client.addr:
+                                self.sendMessage(client.socket, f"UPDATE_PLAYER {usernameA} {eloA} {1 if isOnlineA else 0} {1 if isBusyA else 0} END\n")
+                        if all(x is not None for x in [socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB]):
+                            if addrB != client.addr:
+                                self.sendMessage(client.socket, f"UPDATE_PLAYER {usernameB} {eloB} {1 if isOnlineB else 0} {1 if isBusyB else 0} END\n")
+                    
+                    # проверяем список games
+                    # содержит ли он игру, в которой участвует
+                    # один из игроков (ответчик или напарник)
+                    # сохраним игру в find_game
+                    with games_lock:
+                        games_copy = games.copy()
+                    find_game = None
+                    #usernamesInGames = False
+                    for game in games_copy:
+                        if game.isUsernameInGame(usernameA) and game.isUsernameInGame(usernameB):
+                            find_game = game
+                            break
+                    # если есть такая игра
+                    # отправляем сообщения для инициатора и целевого
+                    # эти сообщения позволят убрать AlertDialog в интерфейсе клиентов
+                    # и запустить игру, если status == 'ok'
+                    # также удаляем игру, если status == 'bad'
+                    if find_game is not None:
+                        if status == "ok":
+                            # обходим список игр
+                            for game in games:
+                                # если находим нашу игру
+                                if game == find_game:
+                                    # запускаем её
+                                    with games_lock:
+                                        game.running = True
+                                    break
+                            if all(x is not None for x in [socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA]) and all(x is not None for x in [socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB]):
+                                self.sendMessage(socketA, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} ok END\n")
+                                self.sendMessage(socketB, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} ok END\n")
+                        else:
+                            # обходим список игр
+                            for game in games:
+                                # если находим нашу игру
+                                if game == find_game:
+                                    # удаляем её
+                                    with games_lock:
+                                        games.remove(game)
+                                    break
+                            if all(x is not None for x in [socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA]) and all(x is not None for x in [socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB]):
+                                self.sendMessage(socketA, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} bad END\n")
+                                self.sendMessage(socketB, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} bad END\n")
                     '''response_elo = 1500
                     response_isOnline = 0
                     response_isBusy = None
