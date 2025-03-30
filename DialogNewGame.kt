@@ -12,14 +12,6 @@ class DialogNewGame(
     private val isPositiveButton: Boolean,
     private val sendMessageToServer: (String) -> Unit) : DialogFragment() {
 
-    private fun onClickPositiveButton() {
-        sendMessageToServer("RESPONSE_GAME $username ok END")
-    }
-
-    private fun onClickNegativeButton() {
-        sendMessageToServer("RESPONSE_GAME $username bad END")
-    }
-
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return activity?.let {
             val builder = AlertDialog.Builder(it)
@@ -29,16 +21,11 @@ class DialogNewGame(
                 .setTitle("(${elo}) $username")
                 .setIcon(R.drawable.player_busy)
                 .setView(view)
-                .setNegativeButton(android.R.string.cancel) { dialog, _ -> onClickNegativeButton() } // onClickNegativeButton()
-            if (isPositiveButton) builder.setPositiveButton(android.R.string.ok) { dialog, _ -> onClickPositiveButton() } // onClickPositiveButton()
+                .setNegativeButton(android.R.string.cancel) { _, _ -> sendMessageToServer("RESPONSE_GAME $username bad END") }
+            if (isPositiveButton) builder.setPositiveButton(android.R.string.ok) { _, _ -> sendMessageToServer("RESPONSE_GAME $username ok END") }
             val dialog = builder.create()
-            //dialog.window?.setBackgroundDrawableResource(R.color.blue_basic_light_min)
+            dialog.setCanceledOnTouchOutside(false)
             dialog
         } ?: throw IllegalStateException("Activity cannot be null")
-    }
-
-    override fun onDismiss(dialog: DialogInterface) {
-        super.onDismiss(dialog)
-        onClickNegativeButton()
     }
 }

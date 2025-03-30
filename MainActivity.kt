@@ -2,6 +2,7 @@ package ru.snavalstrike.app
 
 import android.os.Bundle
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Button
@@ -12,6 +13,7 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.Toast
 import java.io.BufferedReader
 import java.io.IOException
@@ -66,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         when (scene) {
             "main" -> {
                 setContentView(R.layout.activity_main)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar_main)
                 setSupportActionBar(toolbar)
                 val subtitle = "${Singleton.username} (${Singleton.elo})"
@@ -81,6 +84,7 @@ class MainActivity : AppCompatActivity() {
             }
             "login" -> {
                 setContentView(R.layout.activity_login)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val editUsername = findViewById<EditText>(R.id.activity_login_edit_username)
                 val loginButton = findViewById<Button>(R.id.activity_login_button)
                 loginButton.setOnClickListener {
@@ -91,6 +95,7 @@ class MainActivity : AppCompatActivity() {
             }
             "reconnect" -> {
                 setContentView(R.layout.activity_reconnect)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val reconnectButton = findViewById<Button>(R.id.activity_reconnect_button)
                 reconnectButton.setOnClickListener {
                     Singleton.scene = "splash"
@@ -100,6 +105,17 @@ class MainActivity : AppCompatActivity() {
             }
             "splash" -> {
                 setContentView(R.layout.activity_splash)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            }
+            "game" -> {
+                setContentView(R.layout.activity_game)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
             }
         }
     }
@@ -153,21 +169,27 @@ class MainActivity : AppCompatActivity() {
             reader = BufferedReader(InputStreamReader(socket!!.inputStream))
         }
 
+        private fun reDrawLoginPage() {
+            uiHandler.post {
+                sharedPreferencesClear()
+                Singleton.scene = "login"
+                reDraw(Singleton.scene)
+            }
+        }
+
         private fun startReader() {
             Thread {
                 try {
                     while (running) {
                         readMessage()?.let { message ->
                             if (Singleton.DEBUG) notifyMessage(message)
-                            when (message.split(" ")[0]) {
-                                "HEARTBEAT" -> {
-                                    todo()
-                                }
+                            when (message.split(" ")[0]) { // METHOD
+                                "HEARTBEAT" -> todo()
                                 "ADD_USER" -> {
                                     val status = message.split(" ")[1]
                                     val username = message.split(" ")[2]
-                                    if (status == "ok") {
-                                        uiHandler.post {
+                                    when (status) {
+                                        "ok" -> uiHandler.post {
                                             Singleton.editor.putString("username", username)
                                             Singleton.editor.apply()
                                             Singleton.editor.putInt("elo", 1500)
@@ -177,36 +199,25 @@ class MainActivity : AppCompatActivity() {
                                             Singleton.scene = "main"
                                             reDraw(Singleton.scene)
                                         }
-                                    } else if (status == "alreadyinuse") {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        "alreadyinuse" -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Username `${username}` already in use")
                                         }
-                                        notifyMessage("Username `${username}` already in use")
-                                    } else if (status == "error") {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        "error" -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Error add user `${username}`")
                                         }
-                                        notifyMessage("Error add user `${username}`")
-                                    } else {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        else -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Username `${username}` add user undefined status")
                                         }
-                                        notifyMessage("Username `${username}` add user undefined status")
                                     }
                                 }
                                 "DELETE_USER" -> {
                                     val status = message.split(" ")[1]
                                     val username = message.split(" ")[2]
                                     when (status) {
-                                        "ok" -> {
-                                            if (Singleton.DEBUG) notifyMessage("Delete user `${username}` successfully") else todo()
-                                        }
+                                        "ok" -> if (Singleton.DEBUG) notifyMessage("Delete user `${username}` successfully") else todo()
                                         "dontfind" -> notifyMessage("Username `${username}` don't find to delete")
                                         "error" -> notifyMessage("Error delete user `${username}`")
                                         else -> notifyMessage("Username `${username}` delete user undefined status")
@@ -216,8 +227,8 @@ class MainActivity : AppCompatActivity() {
                                     val status = message.split(" ")[1]
                                     val username = message.split(" ")[2]
                                     val elo = message.split(" ")[3].toInt()
-                                    if (status == "ok") {
-                                        uiHandler.post {
+                                    when (status) {
+                                        "ok" -> uiHandler.post {
                                             Singleton.editor.putString("username", username)
                                             Singleton.editor.apply()
                                             Singleton.editor.putInt("elo", elo)
@@ -227,78 +238,72 @@ class MainActivity : AppCompatActivity() {
                                             Singleton.scene = "main"
                                             reDraw(Singleton.scene)
                                         }
-                                    } else if (status == "doesnotexist") {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        "doesnotexist" -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Username `${username}` does not exist")
                                         }
-                                        notifyMessage("Username `${username}` does not exist")
-                                    } else if (status == "error") {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        "error" -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Error login `${username}`")
                                         }
-                                        notifyMessage("Error login `${username}`")
-                                    } else {
-                                        uiHandler.post {
-                                            sharedPreferencesClear()
-                                            Singleton.scene = "login"
-                                            reDraw(Singleton.scene)
+                                        else -> {
+                                            reDrawLoginPage()
+                                            notifyMessage("Username `${username}` login undefined status")
                                         }
-                                        notifyMessage("Username `${username}` login undefined status")
                                     }
                                 }
-                                "ADD_PLAYER" -> {
-                                    val id = message.split(" ")[1]
-                                    val username = message.split(" ")[2]
-                                    val elo = message.split(" ")[3].toInt()
-                                    val isOnline = message.split(" ")[4].toInt() == 1
-                                    val isBusy = message.split(" ")[5].toInt() == 1
-                                    runOnUiThread {
-                                        playerRecyclerViewAdapter.addPlayer(Player(id, username, elo, isOnline, isBusy))
-                                    }
+                                "ADD_PLAYER" -> runOnUiThread {
+                                    playerRecyclerViewAdapter.addPlayer(Player(
+                                        id = message.split(" ")[1],
+                                        username = message.split(" ")[2],
+                                        elo = message.split(" ")[3].toInt(),
+                                        isOnline = message.split(" ")[4].toInt() == 1,
+                                        isBusy = message.split(" ")[5].toInt() == 1)
+                                    )
                                 }
-                                "DELETE_PLAYER" -> {
-                                    val username = message.split(" ")[1]
-                                    runOnUiThread {
-                                        playerRecyclerViewAdapter.removePlayer(username)
-                                    }
+                                "DELETE_PLAYER" -> runOnUiThread {
+                                    playerRecyclerViewAdapter.removePlayer(
+                                        username = message.split(" ")[1]
+                                    )
                                 }
-                                "UPDATE_PLAYER" -> {
-                                    val username = message.split(" ")[1]
-                                    val elo = message.split(" ")[2].toInt()
-                                    val isOnline = message.split(" ")[3].toInt() == 1
-                                    val isBusy = message.split(" ")[4].toInt() == 1
-                                    runOnUiThread {
-                                        playerRecyclerViewAdapter.updatePlayer(username, elo, isOnline, isBusy)
-                                    }
+                                "UPDATE_PLAYER" -> runOnUiThread {
+                                    playerRecyclerViewAdapter.updatePlayer(
+                                        username = message.split(" ")[1],
+                                        elo = message.split(" ")[2].toInt(),
+                                        isOnline = message.split(" ")[3].toInt() == 1,
+                                        isBusy = message.split(" ")[4].toInt() == 1
+                                    )
                                 }
                                 "REQUEST_GAME" -> {
                                     val usernameA = message.split(" ")[1]
                                     val eloA = message.split(" ")[2].toInt()
                                     val usernameB = message.split(" ")[3]
                                     val eloB = message.split(" ")[4].toInt()
-                                    if (Singleton.username == usernameA) {
-                                        val dialog = DialogNewGame(usernameB, eloB, isPositiveButton = false, ::sendMessageToServer)
-                                        dialog.show(supportFragmentManager, "NEW_GAME")
-                                    } else if (Singleton.username == usernameB) {
-                                        val dialog = DialogNewGame(usernameA, eloA, isPositiveButton = true, ::sendMessageToServer)
-                                        dialog.show(supportFragmentManager, "NEW_GAME")
-                                    } else {
-                                        notifyMessage("REQUEST_GAME. I'm not usernameA and usernameB. It's impossible!!!")
+                                    when (Singleton.username) {
+                                        usernameA -> DialogNewGame(usernameB, eloB, isPositiveButton = false, ::sendMessageToServer).show(supportFragmentManager, "NEW_GAME")
+                                        usernameB -> DialogNewGame(usernameA, eloA, isPositiveButton = true, ::sendMessageToServer).show(supportFragmentManager, "NEW_GAME")
+                                        else -> notifyMessage("REQUEST_GAME. I'm not usernameA and usernameB. It's impossible!!!")
                                     }
                                 }
                                 "RESPONSE_GAME" -> {
-                                    val username = message.split(" ")[1]
-                                    val status = message.split(" ")[2]
-                                    val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
-                                    dialogFragment?.dismiss() ?: todo()
+                                    val usernameA = message.split(" ")[1]
+                                    val eloA = message.split(" ")[2].toInt()
+                                    val usernameB = message.split(" ")[3]
+                                    val eloB = message.split(" ")[4].toInt()
+                                    when (message.split(" ")[5]) { // status
+                                        "ok" -> uiHandler.post {
+                                            Singleton.scene = "game"
+                                            reDraw(Singleton.scene)
+                                        }
+                                        "bad" -> {
+                                            val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
+                                            //dialogFragment?.dismiss() ?: todo()
+                                            dialogFragment?.dismiss() ?: todo()
+                                        }
+                                        else -> notifyMessage("RESPONSE_GAME. Status is not OK or BAD. It's impossible!!!")
+                                    }
                                 }
-                                else -> {
-                                    if (Singleton.DEBUG) notifyMessage("Unknown method") else todo()
-                                }
+                                else -> if (Singleton.DEBUG) notifyMessage("Unknown method") else todo()
                             }
                         } ?: break
                     }
