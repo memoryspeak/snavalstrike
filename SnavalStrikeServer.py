@@ -320,14 +320,17 @@ class ClientHandler(threading.Thread): # наследуемся от threading.T
                     for client in clients:
                         if client.addr == self.addr:
                             with clients_lock:
-                                if status == "ok":
-                                  pass
-                                else:
+                                if status == "bad":
                                     client.isBusy = False
+                                else:
+                                    client.isBusy = True
                             socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA = getClientBy("addr", self.addr)
                         if client.username == response_username:
                             with clients_lock:
-                                client.isBusy = False
+                                if status == "bad":
+                                    client.isBusy = False
+                                else:
+                                    client.isBusy = True
                             socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB = getClientBy("username", response_username)
                     
                     # отправляем всем клиентам (кроме ответчика и напарника)
@@ -349,13 +352,12 @@ class ClientHandler(threading.Thread): # наследуемся от threading.T
                     with games_lock:
                         games_copy = games.copy()
                     find_game = None
-                    #usernamesInGames = False
                     for game in games_copy:
                         if game.isUsernameInGame(usernameA) and game.isUsernameInGame(usernameB):
                             find_game = game
                             break
                     # если есть такая игра
-                    # отправляем сообщения для инициатора и целевого
+                    # отправляем сообщения для ответчика и напарника
                     # эти сообщения позволят убрать AlertDialog в интерфейсе клиентов
                     # и запустить игру, если status == 'ok'
                     # также удаляем игру, если status == 'bad'
@@ -384,33 +386,6 @@ class ClientHandler(threading.Thread): # наследуемся от threading.T
                             if all(x is not None for x in [socketA, addrA, database_idA, usernameA, eloA, isOnlineA, isBusyA]) and all(x is not None for x in [socketB, addrB, database_idB, usernameB, eloB, isOnlineB, isBusyB]):
                                 self.sendMessage(socketA, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} bad END\n")
                                 self.sendMessage(socketB, f"RESPONSE_GAME {usernameA} {eloA} {usernameB} {eloB} bad END\n")
-                    '''response_elo = 1500
-                    response_isOnline = 0
-                    response_isBusy = None
-                    self_isOnline = 1
-                    self_isBusy = None
-                    status = message.split(" ")[2]
-                    if status == "bad":
-                        response_isBusy = 0
-                        self_isBusy = 0
-                    else:
-                        response_isBusy = 1
-                        self_isBusy = 1
-                    for client in clients:
-                        if client.username == response_username:
-                            response_elo = client.elo
-                            response_isOnline = 1
-                            break
-                    for client in clients:
-                        if client.addr != self.addr:
-                            client.socket.send(f"UPDATE_PLAYER {self.username} {self.elo} {self_isOnline} {self_isBusy} END\n".encode('utf-8'))
-                        else:
-                            client.socket.send(f"RESPONSE_GAME {response_username} {status} END\n".encode('utf-8'))
-                    for client in clients:
-                        if client.username != response_username:
-                            client.socket.send(f"UPDATE_PLAYER {response_username} {response_elo} {response_isOnline} {response_isBusy} END\n".encode('utf-8'))
-                        else:
-                            client.socket.send(f"RESPONSE_GAME {self.username} {status} END\n".encode('utf-8'))'''
         except ConnectionResetError: # ошибка обрыва соединения с клиентом
             print(f"[{datetime.now()}] [-] BROKEN connection with {self.addr}")
         finally:
