@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var socketThread: SocketThread? = null
     private val playerRecyclerViewAdapter: PlayersRecyclerViewAdapter = PlayersRecyclerViewAdapter(mutableListOf(), supportFragmentManager, ::sendMessageToServer)
+    private var gameView: GameView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Singleton.sharedPreferences = getSharedPreferences("snavalStrikeSettings", Context.MODE_PRIVATE)
@@ -36,6 +37,18 @@ class MainActivity : AppCompatActivity() {
         Singleton.scene = "splash"
         reDraw(Singleton.scene)
         startSocketConnection()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Singleton.scene == "game") {
+            window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -69,6 +82,7 @@ class MainActivity : AppCompatActivity() {
             "main" -> {
                 setContentView(R.layout.activity_main)
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
                 val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar_main)
                 setSupportActionBar(toolbar)
                 val subtitle = "${Singleton.username} (${Singleton.elo})"
@@ -85,6 +99,7 @@ class MainActivity : AppCompatActivity() {
             "login" -> {
                 setContentView(R.layout.activity_login)
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
                 val editUsername = findViewById<EditText>(R.id.activity_login_edit_username)
                 val loginButton = findViewById<Button>(R.id.activity_login_button)
                 loginButton.setOnClickListener {
@@ -96,6 +111,7 @@ class MainActivity : AppCompatActivity() {
             "reconnect" -> {
                 setContentView(R.layout.activity_reconnect)
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
                 val reconnectButton = findViewById<Button>(R.id.activity_reconnect_button)
                 reconnectButton.setOnClickListener {
                     Singleton.scene = "splash"
@@ -106,6 +122,7 @@ class MainActivity : AppCompatActivity() {
             "splash" -> {
                 setContentView(R.layout.activity_splash)
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
             }
             "game" -> {
                 setContentView(R.layout.activity_game)
@@ -116,9 +133,11 @@ class MainActivity : AppCompatActivity() {
                         or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         or View.SYSTEM_UI_FLAG_FULLSCREEN
                         or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+                gameView = findViewById(R.id.game_view)
             }
         }
     }
+
     override fun onDestroy() {
         socketThread?.closeConnection()
         super.onDestroy()
@@ -296,9 +315,13 @@ class MainActivity : AppCompatActivity() {
                                             reDraw(Singleton.scene)
                                         }
                                         "bad" -> {
-                                            val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
-                                            //dialogFragment?.dismiss() ?: todo()
-                                            dialogFragment?.dismiss() ?: todo()
+                                            if (Singleton.scene == "game") {
+                                                gameView?.currentScene = "gameoverB"
+                                                todo() // переименовать сцену в игре в gameoverB
+                                            } else {
+                                                val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
+                                                dialogFragment?.dismiss() ?: todo()
+                                            }
                                         }
                                         else -> notifyMessage("RESPONSE_GAME. Status is not OK or BAD. It's impossible!!!")
                                     }
@@ -459,5 +482,13 @@ class MainActivity : AppCompatActivity() {
     private fun reconnectManually() {
         socketThread?.closeConnection()
         startSocketConnection()
+    }
+
+
+    @Deprecated("Deprecated in Java", ReplaceWith("super.onBackPressed()", "androidx.appcompat.app.AppCompatActivity"))
+    override fun onBackPressed() {
+        if (Singleton.scene == "game") {
+            gameView?.currentScene = "exit"
+        } else super.onBackPressed()
     }
 }
