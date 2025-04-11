@@ -316,8 +316,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         "bad" -> {
                                             if (Singleton.scene == "game") {
-                                                gameView?.currentScene = "gameoverB"
-                                                todo() // переименовать сцену в игре в gameoverB
+                                                gameView?.currentScene = "game_over"
                                             } else {
                                                 val dialogFragment = supportFragmentManager.findFragmentByTag("NEW_GAME") as? DialogNewGame
                                                 dialogFragment?.dismiss() ?: todo()
